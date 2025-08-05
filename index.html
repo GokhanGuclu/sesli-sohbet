@@ -18,7 +18,7 @@
                 </div>
                 <div class="login-form">
                     <div class="input-group">
-                        <label for="username">Kullanıcı Adı s:</label>
+                        <label for="username">Kullanıcı Adı:</label>
                         <input type="text" id="username" placeholder="Kullanıcı adınızı girin">
                     </div>
                     <div class="input-group">
@@ -44,7 +44,15 @@
                     <h1>🎤 Sesli Sohbet</h1>
                     <div class="version-info">
                         <span id="app-version">v1.0.0</span>
-                        <span id="update-status" class="update-status"></span>
+                        <div id="update-container" class="update-container" style="display: none;">
+                            <span id="update-status" class="update-status"></span>
+                            <div id="update-progress" class="update-progress" style="display: none;">
+                                <div class="progress-bar">
+                                    <div id="progress-fill" class="progress-fill"></div>
+                                </div>
+                                <span id="progress-text" class="progress-text">0%</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="header-right">

@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // Güncelleme durumu dinle
     onUpdateStatus: (callback) => {
-        ipcRenderer.on('update-status', (event, message) => callback(message));
+        ipcRenderer.on('update-status', (event, message, data) => callback(message, data));
     },
     
     // Hata dialog'u göster

@@ -48,11 +48,16 @@ autoUpdater.on('update-available', (info) => {
     dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: 'Güncelleme Mevcut',
-        message: 'Yeni bir güncelleme mevcut. İndirmek istiyor musunuz?',
-        buttons: ['İndir', 'İptal']
+        message: `Yeni bir güncelleme mevcut!\n\nMevcut versiyon: ${app.getVersion()}\nYeni versiyon: ${info.version}\n\nİndirmek istiyor musunuz?`,
+        buttons: ['İndir', 'İptal'],
+        defaultId: 0,
+        cancelId: 1
     }).then((result) => {
         if (result.response === 0) {
+            sendStatusToWindow('Güncelleme indiriliyor...');
             autoUpdater.downloadUpdate();
+        } else {
+            sendStatusToWindow('Güncelleme iptal edildi.');
         }
     });
 });
@@ -63,13 +68,17 @@ autoUpdater.on('update-not-available', (info) => {
 
 autoUpdater.on('error', (err) => {
     sendStatusToWindow('Güncelleme hatası: ' + err.message);
+    dialog.showErrorBox('Güncelleme Hatası', 'Güncelleme sırasında bir hata oluştu: ' + err.message);
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
-    let log_message = "İndirme hızı: " + progressObj.bytesPerSecond;
-    log_message = log_message + ' - İndirilen ' + progressObj.percent + '%';
-    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
-    sendStatusToWindow(log_message);
+    const percent = Math.round(progressObj.percent);
+    const speed = (progressObj.bytesPerSecond / 1024 / 1024).toFixed(1);
+    const transferred = (progressObj.transferred / 1024 / 1024).toFixed(1);
+    const total = (progressObj.total / 1024 / 1024).toFixed(1);
+    
+    const log_message = `İndiriliyor: ${percent}% (${transferred}MB/${total}MB) - ${speed}MB/s`;
+    sendStatusToWindow(log_message, { type: 'progress', percent, speed, transferred, total });
 });
 
 autoUpdater.on('update-downloaded', (info) => {
@@ -77,18 +86,23 @@ autoUpdater.on('update-downloaded', (info) => {
     dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: 'Güncelleme Hazır',
-        message: 'Güncelleme indirildi. Uygulamayı yeniden başlatmak istiyor musunuz?',
-        buttons: ['Yeniden Başlat', 'Daha Sonra']
+        message: 'Güncelleme başarıyla indirildi. Uygulamayı yeniden başlatmak istiyor musunuz?',
+        buttons: ['Yeniden Başlat', 'Daha Sonra'],
+        defaultId: 0,
+        cancelId: 1
     }).then((result) => {
         if (result.response === 0) {
+            sendStatusToWindow('Uygulama yeniden başlatılıyor...');
             autoUpdater.quitAndInstall();
+        } else {
+            sendStatusToWindow('Güncelleme daha sonra kurulacak.');
         }
     });
 });
 
-function sendStatusToWindow(text) {
+function sendStatusToWindow(text, data = {}) {
     if (mainWindow) {
-        mainWindow.webContents.send('update-status', text);
+        mainWindow.webContents.send('update-status', text, data);
     }
 }
 
