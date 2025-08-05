@@ -1,6 +1,6 @@
 {
   "name": "sesli-sohbet",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Sesli Sohbet Electron Uygulaması",
   "main": "main.js",
   "scripts": {
@@ -28,8 +28,11 @@
     "electron-builder": "^24.6.4"
   },
   "dependencies": {
-    "ws": "^8.14.2",
-    "electron-updater": "^6.1.7"
+    "electron-updater": "^6.1.7",
+    "fs-extra": "^11.3.1",
+    "graceful-fs": "^4.2.11",
+    "universalify": "^2.0.1",
+    "ws": "^8.14.2"
   },
   "build": {
     "appId": "com.gokhanguclu.seslisohbet",
@@ -42,8 +45,25 @@
       "!node_modules/**/*",
       "!dist/**/*",
       "!backend/**/*",
-      "!*.md",
-      "node_modules/electron-updater/**/*"
+      "!*.md"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/electron-updater",
+        "to": "node_modules/electron-updater"
+      },
+      {
+        "from": "node_modules/fs-extra",
+        "to": "node_modules/fs-extra"
+      },
+      {
+        "from": "node_modules/graceful-fs",
+        "to": "node_modules/graceful-fs"
+      },
+      {
+        "from": "node_modules/universalify",
+        "to": "node_modules/universalify"
+      }
     ],
     "publish": {
       "provider": "github",
@@ -56,11 +76,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico"
