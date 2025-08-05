@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sesli Sohbet - Web Versiyonu</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Web için ek stiller */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .web-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .web-header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        .web-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+        }
+        
+        /* Web için responsive düzenlemeler */
+        @media (max-width: 768px) {
+            .chat-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+            
+            .users-panel, .voice-panel {
+                max-height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Web Header -->
+    <div class="web-header">
+        <h1><i class="fas fa-microphone"></i> Sesli Sohbet</h1>
+        <p>Web Versiyonu - sesli.gokhanguclu.com</p>
+    </div>
+
+    <div id="app">
+        <!-- Giriş Ekranı -->
+        <div id="login-screen" class="screen active">
+            <div class="login-container">
+                <div class="logo">
+                    <i class="fas fa-microphone"></i>
+                    <h1>Sesli Sohbet</h1>
+                    <p style="color: #666; margin-top: 0.5rem;">Web Versiyonu</p>
+                </div>
+                <div class="login-form">
+                    <div class="input-group">
+                        <label for="username">Kullanıcı Adı:</label>
+                        <input type="text" id="username" placeholder="Kullanıcı adınızı girin">
+                    </div>
+                    <div class="input-group">
+                        <label for="room-id">Oda ID:</label>
+                        <input type="text" id="room-id" placeholder="Oda ID'sini girin">
+                    </div>
+                    <div class="input-group">
+                        <label for="server-url">Sunucu URL:</label>
+                        <input type="text" id="server-url" value="wss://sesli.gokhanguclu.com/ws" placeholder="Sunucu URL'si">
+                    </div>
+                    <button id="join-btn" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Odaya Katıl
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sohbet Ekranı -->
+        <div id="chat-screen" class="screen">
+            <div class="chat-header">
+                <div class="room-info">
+                    <h2>Oda: <span id="current-room">-</span></h2>
+                    <p>Kullanıcı: <span id="current-user">-</span></p>
+                </div>
+                <div class="header-actions">
+                    <button id="leave-btn" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Ayrıl
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-content">
+                <div class="users-panel">
+                    <h3>Kullanıcılar</h3>
+                    <div id="users-list" class="users-list">
+                        <!-- Kullanıcılar buraya eklenecek -->
+                    </div>
+                </div>
+
+                <div class="chat-panel">
+                    <div class="messages-container">
+                        <div id="messages" class="messages">
+                            <!-- Mesajlar buraya eklenecek -->
+                        </div>
+                    </div>
+                    
+                    <div class="message-input">
+                        <input type="text" id="message-input" placeholder="Mesajınızı yazın...">
+                        <button id="send-btn" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="voice-panel">
+                    <div class="voice-controls">
+                        <h3>Ses Kontrolleri</h3>
+                        
+                        <!-- Mikrofon Seçimi -->
+                        <div class="microphone-selection">
+                            <label for="microphone-select">Mikrofon:</label>
+                            <select id="microphone-select" class="microphone-select">
+                                <option value="">Mikrofon seçiliyor...</option>
+                            </select>
+                            <button id="refresh-microphones" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="control-group">
+                            <button id="mute-btn" class="btn btn-secondary">
+                                <i class="fas fa-microphone"></i>
+                                <span>Sustur</span>
+                            </button>
+                            <button id="deafen-btn" class="btn btn-secondary">
+                                <i class="fas fa-volume-mute"></i>
+                                <span>Sesi Kapat</span>
+                            </button>
+                        </div>
+                        <div class="volume-control">
+                            <label for="volume-slider">Ses Seviyesi:</label>
+                            <input type="range" id="volume-slider" min="0" max="100" value="50">
+                        </div>
+                    </div>
+                    
+                    <div class="voice-status">
+                        <div class="status-indicator">
+                            <span class="status-dot"></span>
+                            <span id="connection-status">Bağlantı yok</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/webrtc.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+    
+    <script>
+        // Web versiyonu için özel ayarlar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Sesli Sohbet Web Versiyonu yüklendi');
+            
+            // Web versiyonu için özel event listener'lar
+            if (window.uiManager) {
+                // Web versiyonu için hata gösterimi
+                const originalShowError = window.uiManager.showError;
+                window.uiManager.showError = function(message) {
+                    if (typeof alert !== 'undefined') {
+                        alert('Hata: ' + message);
+                    } else {
+                        originalShowError.call(this, message);
+                    }
+                };
+            }
+        });
+    </script>
+</body>
+</html> 

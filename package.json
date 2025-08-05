@@ -1,0 +1,82 @@
+{
+  "name": "sesli-sohbet",
+  "version": "1.0.0",
+  "description": "Sesli Sohbet Electron Uygulaması",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "web": "node server.js",
+    "web:dev": "node server.js",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "publish": "electron-builder --publish=always"
+  },
+  "keywords": [
+    "electron",
+    "sesli-sohbet",
+    "webrtc",
+    "websocket"
+  ],
+  "author": "Gökhan Güçlü",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "electron-updater": "^6.1.7"
+  },
+  "build": {
+    "appId": "com.gokhanguclu.seslisohbet",
+    "productName": "Sesli Sohbet",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "!dist/**/*",
+      "!backend/**/*",
+      "!*.md"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "gokhanguclu",
+      "repo": "sesli-sohbet",
+      "private": false,
+      "releaseType": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
