@@ -1,6 +1,6 @@
 {
   "name": "sesli-sohbet",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Sesli Sohbet Electron Uygulaması",
   "main": "main.js",
   "scripts": {
@@ -31,6 +31,11 @@
     "electron-updater": "^6.1.7",
     "fs-extra": "^11.3.1",
     "graceful-fs": "^4.2.11",
+    "jsonfile": "^6.1.0",
+    "klaw": "^4.0.1",
+    "lodash.once": "^4.1.1",
+    "lodash.uniq": "^4.5.0",
+    "semver": "^7.5.4",
     "universalify": "^2.0.1",
     "ws": "^8.14.2"
   },
@@ -59,6 +64,26 @@
       {
         "from": "node_modules/graceful-fs",
         "to": "node_modules/graceful-fs"
+      },
+      {
+        "from": "node_modules/jsonfile",
+        "to": "node_modules/jsonfile"
+      },
+      {
+        "from": "node_modules/klaw",
+        "to": "node_modules/klaw"
+      },
+      {
+        "from": "node_modules/lodash.once",
+        "to": "node_modules/lodash.once"
+      },
+      {
+        "from": "node_modules/lodash.uniq",
+        "to": "node_modules/lodash.uniq"
+      },
+      {
+        "from": "node_modules/semver",
+        "to": "node_modules/semver"
       },
       {
         "from": "node_modules/universalify",
