@@ -1,6 +1,6 @@
 {
   "name": "sesli-sohbet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sesli Sohbet Electron Uygulaması",
   "main": "main.js",
   "scripts": {
@@ -42,7 +42,8 @@
       "!node_modules/**/*",
       "!dist/**/*",
       "!backend/**/*",
-      "!*.md"
+      "!*.md",
+      "node_modules/electron-updater/**/*"
     ],
     "publish": {
       "provider": "github",
