@@ -241,16 +241,20 @@ class WebRTCManager {
         audioElement.srcObject = stream;
         audioElement.volume = this.volumeLevel;
         audioElement.id = `remote-audio-${clientId}`;
-        
+        // Electron ortamında muted=false olmalı
+        if (window && window.process && window.process.type === 'renderer') {
+            audioElement.muted = false;
+        }
         // Ses seviyesini ayarla
         if (this.isDeafened) {
             audioElement.muted = true;
         }
-        
-        document.body.appendChild(audioElement);
+        // Sadece bir kez ekle
+        if (!document.getElementById(audioElement.id)) {
+            document.body.appendChild(audioElement);
+        }
         this.remoteAudioElements.set(clientId, audioElement);
         this.remoteStreams.set(clientId, stream);
-        
         console.log(`Uzak ses akışı eklendi: ${clientId}`);
     }
 

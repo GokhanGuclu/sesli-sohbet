@@ -20,7 +20,7 @@ class UIManager {
         // Giriş formu elementleri
         this.usernameInput = document.getElementById('username');
         this.roomIdInput = document.getElementById('room-id');
-        this.serverUrlInput = document.getElementById('server-url');
+        // this.serverUrlInput = document.getElementById('server-url'); // kaldırıldı
         this.joinBtn = document.getElementById('join-btn');
         
         // Sohbet ekranı elementleri
@@ -105,7 +105,7 @@ class UIManager {
     async handleJoin() {
         const username = this.usernameInput.value.trim();
         const roomId = this.roomIdInput.value.trim();
-        const serverUrl = this.serverUrlInput.value.trim();
+        const serverUrl = 'wss://sesli.gokhanguclu.com/ws';
 
         if (!username || !roomId) {
             this.showError('Kullanıcı adı ve oda ID gereklidir.');
@@ -532,16 +532,28 @@ class UIManager {
 
     // Uygulama versiyonunu göster
     async showAppVersion() {
+        const versionSpan = this.appVersion;
+        if (!versionSpan) return;
+        let version = '';
         if (window.electronAPI && window.electronAPI.getAppVersion) {
             try {
-                const version = await window.electronAPI.getAppVersion();
-                if (this.appVersion) {
-                    this.appVersion.textContent = `v${version}`;
+                version = await window.electronAPI.getAppVersion();
+            } catch (e) {
+                version = '';
+            }
+        } else {
+            // Web ortamı için: package.json'ı fetch ile oku
+            try {
+                const res = await fetch('package.json');
+                if (res.ok) {
+                    const pkg = await res.json();
+                    version = pkg.version;
                 }
-            } catch (error) {
-                console.error('Versiyon bilgisi alınamadı:', error);
+            } catch (e) {
+                version = '';
             }
         }
+        versionSpan.textContent = version ? `v${version}` : '';
     }
 }
 

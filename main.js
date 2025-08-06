@@ -6,6 +6,8 @@ const { autoUpdater } = require('electron-updater');
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 let mainWindow;
 
 function createWindow() {
