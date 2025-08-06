@@ -95,10 +95,17 @@ class App {
         // Peer bağlantı durumu değişikliklerini dinle
         rtcManager.on('peerConnected', (clientId) => {
             console.log(`Peer bağlantısı kuruldu: ${clientId}`);
+            this.showSuccess(`Sesli bağlantı kuruldu: ${clientId}`);
         });
 
         rtcManager.on('peerDisconnected', (clientId) => {
             console.log(`Peer bağlantısı kesildi: ${clientId}`);
+            this.showError(`Sesli bağlantı kesildi: ${clientId}`);
+        });
+
+        rtcManager.on('connectionFailed', (clientId) => {
+            console.error(`Bağlantı başarısız: ${clientId}`);
+            this.showError(`Sesli bağlantı kurulamadı: ${clientId}`);
         });
     }
 

@@ -39,9 +39,12 @@
 
         <!-- Sohbet Ekranı -->
         <div id="chat-screen" class="screen">
-            <div class="header">
-                <div class="header-left">
-                    <h1>🎤 Sesli Sohbet</h1>
+            <div class="chat-header">
+                <div class="room-info">
+                    <h2>Oda: <span id="current-room">-</span></h2>
+                    <p>Kullanıcı: <span id="current-user">-</span></p>
+                </div>
+                <div class="header-actions">
                     <div class="version-info">
                         <span id="app-version">v1.0.0</span>
                         <div id="update-container" class="update-container" style="display: none;">
@@ -54,10 +57,12 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="header-right">
                     <button id="check-updates" class="btn btn-secondary btn-sm">
                         <i class="fas fa-sync-alt"></i> Güncelle
+                    </button>
+                    <button id="leave-btn" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Ayrıl
                     </button>
                 </div>
             </div>

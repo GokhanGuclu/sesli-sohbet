@@ -13,6 +13,7 @@ class WebRTCManager {
         this.selectedDeviceId = null;
         this.pendingIceCandidates = new Map();
         this.connectionTimeouts = new Map();
+        this.retryCounts = new Map(); // Yeniden deneme sayılarını tutmak için
         
         this.initializeAudioElements();
     }
@@ -109,6 +110,8 @@ class WebRTCManager {
 
     // Peer connection oluştur
     createPeerConnection(targetClientId) {
+        console.log(`Peer connection oluşturuluyor: ${targetClientId}`);
+        
         const peerConnection = new RTCPeerConnection(CONFIG.RTC_CONFIG);
         
         // Yerel ses akışını ekle
@@ -117,6 +120,8 @@ class WebRTCManager {
                 console.log('Ses track ekleniyor:', track.kind, track.label);
                 peerConnection.addTrack(track, this.localStream);
             });
+        } else {
+            console.warn('Yerel ses akışı bulunamadı');
         }
 
         // Uzak ses akışını dinle
@@ -130,8 +135,10 @@ class WebRTCManager {
         // ICE candidate'ları dinle
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('ICE candidate gönderiliyor:', targetClientId);
+                console.log('ICE candidate gönderiliyor:', targetClientId, event.candidate.type);
                 wsManager.sendIceCandidate(targetClientId, event.candidate);
+            } else {
+                console.log('ICE candidate toplama tamamlandı:', targetClientId);
             }
         };
 
@@ -140,16 +147,42 @@ class WebRTCManager {
             console.log(`Peer connection durumu (${targetClientId}):`, peerConnection.connectionState);
             
             if (peerConnection.connectionState === 'connected') {
+                console.log(`Peer bağlantısı başarılı: ${targetClientId}`);
                 this.emit('peerConnected', targetClientId);
             } else if (peerConnection.connectionState === 'disconnected' || 
                        peerConnection.connectionState === 'failed') {
+                console.warn(`Peer bağlantısı kesildi: ${targetClientId} (${peerConnection.connectionState})`);
                 this.emit('peerDisconnected', targetClientId);
+                
+                // Bağlantı başarısız olduğunda yeniden deneme
+                if (peerConnection.connectionState === 'failed') {
+                    console.warn(`Peer connection başarısız (${targetClientId}), yeniden deneniyor...`);
+                    this.retryConnection(targetClientId);
+                }
+            } else if (peerConnection.connectionState === 'connecting') {
+                console.log(`Peer bağlantısı kuruluyor: ${targetClientId}`);
             }
         };
 
         // ICE connection state değişikliklerini dinle
         peerConnection.oniceconnectionstatechange = () => {
             console.log(`ICE connection durumu (${targetClientId}):`, peerConnection.iceConnectionState);
+            
+            // ICE bağlantısı başarısız olduğunda
+            if (peerConnection.iceConnectionState === 'failed') {
+                console.warn(`ICE bağlantısı başarısız (${targetClientId}), yeniden deneniyor...`);
+                this.retryConnection(targetClientId);
+            } else if (peerConnection.iceConnectionState === 'connected') {
+                console.log(`ICE bağlantısı başarılı (${targetClientId})`);
+                // Başarılı bağlantıda retry count'u sıfırla
+                this.retryCounts.delete(targetClientId);
+            } else if (peerConnection.iceConnectionState === 'checking') {
+                console.log(`ICE bağlantısı kontrol ediliyor (${targetClientId})`);
+            } else if (peerConnection.iceConnectionState === 'disconnected') {
+                console.warn(`ICE bağlantısı kesildi (${targetClientId})`);
+            } else if (peerConnection.iceConnectionState === 'completed') {
+                console.log(`ICE bağlantısı tamamlandı (${targetClientId})`);
+            }
         };
 
         // Signaling state değişikliklerini dinle
@@ -163,6 +196,7 @@ class WebRTCManager {
         };
 
         this.peerConnections.set(targetClientId, peerConnection);
+        console.log(`Peer connection oluşturuldu: ${targetClientId}`);
         return peerConnection;
     }
 
@@ -180,12 +214,15 @@ class WebRTCManager {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                 console.log(`Pending ICE candidate eklendi: ${clientId}`);
             } catch (error) {
-                console.error(`Pending ICE candidate ekleme hatası: ${clientId}`, error);
+                console.warn(`Pending ICE candidate eklenemedi (${clientId}):`, error.message);
+                // Bu normal bir durum olabilir, candidate zaten eklenmiş olabilir
+                // veya candidate geçersiz olabilir
             }
         }
 
         // İşlenen candidate'ları temizle
         this.pendingIceCandidates.delete(clientId);
+        console.log(`Pending ICE candidate'lar temizlendi: ${clientId}`);
     }
 
     // Uzak ses akışını işle
@@ -224,22 +261,24 @@ class WebRTCManager {
             
             // Eğer zaten bir peer connection varsa, önce onu kapat
             if (this.peerConnections.has(targetClientId)) {
+                console.log(`Mevcut peer connection kapatılıyor: ${targetClientId}`);
                 this.closePeerConnection(targetClientId);
             }
             
             const peerConnection = this.createPeerConnection(targetClientId);
             
-            // Timeout ekle
+            // Timeout ekle (daha uzun süre)
             const timeout = setTimeout(() => {
                 if (peerConnection.signalingState !== 'stable') {
                     console.warn(`Offer timeout: ${targetClientId}`);
                     this.closePeerConnection(targetClientId);
                 }
-            }, 10000); // 10 saniye timeout
+            }, 15000); // 15 saniye timeout (artırıldı)
             
             this.connectionTimeouts.set(targetClientId, timeout);
             
             const offer = await peerConnection.createOffer();
+            console.log(`Offer oluşturuldu: ${targetClientId}`, offer.type);
             await peerConnection.setLocalDescription(offer);
             
             // Timeout'u temizle
@@ -256,22 +295,23 @@ class WebRTCManager {
     // Offer al ve answer gönder
     async handleOffer(fromClientId, offer) {
         try {
-            console.log(`Offer alındı: ${fromClientId}`);
+            console.log(`Offer alındı: ${fromClientId}`, offer.type);
             
             // Eğer zaten bir peer connection varsa, önce onu kapat
             if (this.peerConnections.has(fromClientId)) {
+                console.log(`Mevcut peer connection kapatılıyor: ${fromClientId}`);
                 this.closePeerConnection(fromClientId);
             }
             
             const peerConnection = this.createPeerConnection(fromClientId);
             
-            // Timeout ekle
+            // Timeout ekle (daha uzun süre)
             const timeout = setTimeout(() => {
                 if (peerConnection.signalingState !== 'stable') {
                     console.warn(`Answer timeout: ${fromClientId}`);
                     this.closePeerConnection(fromClientId);
                 }
-            }, 10000); // 10 saniye timeout
+            }, 15000); // 15 saniye timeout (artırıldı)
             
             this.connectionTimeouts.set(fromClientId, timeout);
             
@@ -281,6 +321,7 @@ class WebRTCManager {
             
             // Sonra answer oluştur
             const answer = await peerConnection.createAnswer();
+            console.log(`Answer oluşturuldu: ${fromClientId}`, answer.type);
             await peerConnection.setLocalDescription(answer);
             
             // Timeout'u temizle
@@ -297,7 +338,7 @@ class WebRTCManager {
     // Answer al
     async handleAnswer(fromClientId, answer) {
         try {
-            console.log(`Answer alındı: ${fromClientId}`);
+            console.log(`Answer alındı: ${fromClientId}`, answer.type);
             const peerConnection = this.peerConnections.get(fromClientId);
             
             if (peerConnection) {
@@ -319,27 +360,34 @@ class WebRTCManager {
     // ICE candidate al
     async handleIceCandidate(fromClientId, candidate) {
         try {
-            console.log(`ICE candidate alındı: ${fromClientId}`);
+            console.log(`ICE candidate alındı: ${fromClientId}`, candidate.type);
             const peerConnection = this.peerConnections.get(fromClientId);
             
-            if (peerConnection) {
-                // Peer connection'ın durumunu kontrol et
-                if (peerConnection.remoteDescription) {
+            if (!peerConnection) {
+                console.warn(`Peer connection bulunamadı: ${fromClientId}`);
+                return;
+            }
+
+            // Peer connection'ın durumunu kontrol et
+            if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+                try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                     console.log(`ICE candidate eklendi: ${fromClientId}`);
-                } else {
-                    console.log(`Remote description henüz set edilmedi, ICE candidate bekletiliyor: ${fromClientId}`);
-                    // ICE candidate'ı daha sonra eklemek için sakla
-                    if (!this.pendingIceCandidates) {
-                        this.pendingIceCandidates = new Map();
-                    }
-                    if (!this.pendingIceCandidates.has(fromClientId)) {
-                        this.pendingIceCandidates.set(fromClientId, []);
-                    }
-                    this.pendingIceCandidates.get(fromClientId).push(candidate);
+                } catch (iceError) {
+                    console.warn(`ICE candidate eklenemedi (${fromClientId}):`, iceError.message);
+                    // Bu normal bir durum olabilir, candidate zaten eklenmiş olabilir
+                    // veya candidate geçersiz olabilir
                 }
             } else {
-                console.warn(`Peer connection bulunamadı: ${fromClientId}`);
+                console.log(`Remote description henüz set edilmedi, ICE candidate bekletiliyor: ${fromClientId}`);
+                // ICE candidate'ı daha sonra eklemek için sakla
+                if (!this.pendingIceCandidates) {
+                    this.pendingIceCandidates = new Map();
+                }
+                if (!this.pendingIceCandidates.has(fromClientId)) {
+                    this.pendingIceCandidates.set(fromClientId, []);
+                }
+                this.pendingIceCandidates.get(fromClientId).push(candidate);
             }
         } catch (error) {
             console.error('ICE candidate işleme hatası:', error);
@@ -388,6 +436,7 @@ class WebRTCManager {
     closePeerConnection(clientId) {
         const peerConnection = this.peerConnections.get(clientId);
         if (peerConnection) {
+            console.log(`Peer connection kapatılıyor: ${clientId}`);
             peerConnection.close();
             this.peerConnections.delete(clientId);
         }
@@ -407,18 +456,25 @@ class WebRTCManager {
         // Connection timeout'ını temizle
         this.clearConnectionTimeout(clientId);
 
+        // Yeniden deneme sayısını temizle
+        this.retryCounts.delete(clientId);
+
         this.remoteStreams.delete(clientId);
         console.log(`Peer connection kapatıldı: ${clientId}`);
     }
 
     // Tüm bağlantıları kapat
     closeAllConnections() {
+        console.log('Tüm WebRTC bağlantıları kapatılıyor...');
+        
         this.peerConnections.forEach((peerConnection, clientId) => {
+            console.log(`Peer connection kapatılıyor: ${clientId}`);
             peerConnection.close();
         });
         this.peerConnections.clear();
 
         this.remoteAudioElements.forEach((audioElement, clientId) => {
+            console.log(`Uzak ses elementi kaldırılıyor: ${clientId}`);
             audioElement.remove();
         });
         this.remoteAudioElements.clear();
@@ -435,8 +491,12 @@ class WebRTCManager {
         });
         this.connectionTimeouts.clear();
 
+        // Yeniden deneme sayılarını temizle
+        this.retryCounts.clear();
+
         // Yerel ses akışını durdur
         if (this.localStream) {
+            console.log('Yerel ses akışı durduruluyor');
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
@@ -453,7 +513,13 @@ class WebRTCManager {
             activeConnections: this.peerConnections.size,
             hasLocalStream: !!this.localStream,
             availableDevices: this.availableDevices.length,
-            selectedDeviceId: this.selectedDeviceId
+            selectedDeviceId: this.selectedDeviceId,
+            connectionStates: Array.from(this.peerConnections.entries()).map(([clientId, pc]) => ({
+                clientId,
+                connectionState: pc.connectionState,
+                iceConnectionState: pc.iceConnectionState,
+                signalingState: pc.signalingState
+            }))
         };
     }
 
@@ -484,9 +550,43 @@ class WebRTCManager {
     clearConnectionTimeout(clientId) {
         const timeout = this.connectionTimeouts.get(clientId);
         if (timeout) {
+            console.log(`Connection timeout temizleniyor: ${clientId}`);
             clearTimeout(timeout);
             this.connectionTimeouts.delete(clientId);
         }
+    }
+
+    // Bağlantıyı yeniden dene
+    async retryConnection(targetClientId, maxRetries = 3) {
+        const retryCount = this.retryCounts.get(targetClientId) || 0;
+        
+        if (retryCount >= maxRetries) {
+            console.error(`Maksimum yeniden deneme sayısına ulaşıldı (${targetClientId})`);
+            this.emit('connectionFailed', targetClientId);
+            return;
+        }
+
+        console.log(`Bağlantı yeniden deneniyor (${targetClientId}) - Deneme ${retryCount + 1}/${maxRetries}`);
+        
+        // Mevcut bağlantıyı kapat
+        this.closePeerConnection(targetClientId);
+        
+        // Yeniden deneme sayısını artır
+        this.retryCounts.set(targetClientId, retryCount + 1);
+        
+        // Exponential backoff ile bekleme süresi
+        const waitTime = Math.min(2000 * Math.pow(2, retryCount), 10000);
+        console.log(`${waitTime}ms sonra yeniden deneme...`);
+        
+        // Bekle ve yeniden dene
+        setTimeout(async () => {
+            try {
+                console.log(`Yeniden deneme başlatılıyor: ${targetClientId}`);
+                await this.createAndSendOffer(targetClientId);
+            } catch (error) {
+                console.error(`Yeniden deneme hatası (${targetClientId}):`, error);
+            }
+        }, waitTime);
     }
 }
 

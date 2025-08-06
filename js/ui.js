@@ -45,11 +45,7 @@ class UIManager {
         
         // Güncelleme elementleri
         this.appVersion = document.getElementById('app-version');
-        this.updateContainer = document.getElementById('update-container');
         this.updateStatus = document.getElementById('update-status');
-        this.updateProgress = document.getElementById('update-progress');
-        this.progressFill = document.getElementById('progress-fill');
-        this.progressText = document.getElementById('progress-text');
         this.checkUpdatesBtn = document.getElementById('check-updates');
     }
 
@@ -99,8 +95,8 @@ class UIManager {
 
         // Electron API'den güncelleme durumunu dinle
         if (window.electronAPI && window.electronAPI.onUpdateStatus) {
-            window.electronAPI.onUpdateStatus((message, data) => {
-                this.updateUpdateStatus(message, data);
+            window.electronAPI.onUpdateStatus((message) => {
+                this.updateUpdateStatus(message);
             });
         }
     }
@@ -483,12 +479,8 @@ class UIManager {
     }
 
     // Güncelleme durumunu güncelle
-    updateUpdateStatus(message, data = {}) {
-        if (this.updateStatus && this.updateContainer) {
-            // Container'ı göster
-            this.updateContainer.style.display = 'flex';
-            
-            // Mesajı güncelle
+    updateUpdateStatus(message) {
+        if (this.updateStatus) {
             this.updateStatus.textContent = message;
             this.updateStatus.classList.add('show');
             
@@ -497,53 +489,18 @@ class UIManager {
             
             if (message.includes('kontrol ediliyor')) {
                 this.updateStatus.classList.add('checking');
-                this.hideProgress();
             } else if (message.includes('mevcut')) {
                 this.updateStatus.classList.add('available');
-                this.hideProgress();
             } else if (message.includes('indiriliyor') || message.includes('İndirme')) {
                 this.updateStatus.classList.add('downloading');
-                this.showProgress();
             } else if (message.includes('hatası') || message.includes('başarısız')) {
                 this.updateStatus.classList.add('error');
-                this.hideProgress();
-            } else {
-                this.hideProgress();
             }
             
-            // Progress bar güncelle
-            if (data.type === 'progress' && this.progressFill && this.progressText) {
-                this.progressFill.style.width = `${data.percent}%`;
-                this.progressText.textContent = `${data.percent}%`;
-            }
-            
-            // 10 saniye sonra gizle (progress bar varsa gizleme)
-            if (!data.type || data.type !== 'progress') {
-                setTimeout(() => {
-                    this.updateContainer.style.display = 'none';
-                    this.updateStatus.classList.remove('show');
-                }, 10000);
-            }
-        }
-    }
-
-    // Progress bar'ı göster
-    showProgress() {
-        if (this.updateProgress) {
-            this.updateProgress.style.display = 'flex';
-        }
-    }
-
-    // Progress bar'ı gizle
-    hideProgress() {
-        if (this.updateProgress) {
-            this.updateProgress.style.display = 'none';
-            if (this.progressFill) {
-                this.progressFill.style.width = '0%';
-            }
-            if (this.progressText) {
-                this.progressText.textContent = '0%';
-            }
+            // 5 saniye sonra gizle
+            setTimeout(() => {
+                this.updateStatus.classList.remove('show');
+            }, 5000);
         }
     }
 

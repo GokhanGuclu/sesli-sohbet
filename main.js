@@ -15,11 +15,25 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js')
+            preload: path.join(__dirname, 'preload.js'),
+            webSecurity: false,
+            allowRunningInsecureContent: true,
+            experimentalFeatures: true,
+            enableWebRTC: true
         },
         icon: path.join(__dirname, 'assets', 'icon.ico'),
         title: 'Sesli Sohbet',
         show: false
+    });
+
+    // Mikrofon izinleri için
+    mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+        const allowedPermissions = ['media', 'microphone', 'camera'];
+        if (allowedPermissions.includes(permission)) {
+            callback(true);
+        } else {
+            callback(false);
+        }
     });
 
     // Geliştirme modunda devtools aç
