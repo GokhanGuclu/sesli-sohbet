@@ -1,6 +1,6 @@
 {
   "name": "sesli-sohbet",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Güvenli ve kullanıcı dostu sesli sohbet uygulaması - WebRTC teknolojisi ile yüksek kaliteli ses iletişimi",
   "main": "main.js",
   "scripts": {
