@@ -112,7 +112,36 @@ class WebRTCManager {
     createPeerConnection(targetClientId) {
         console.log(`Peer connection oluşturuluyor: ${targetClientId}`);
         
-        const peerConnection = new RTCPeerConnection(CONFIG.RTC_CONFIG);
+        // Chrome tabanlı tarayıcılar için özel konfigürasyon
+        const rtcConfig = {
+            iceServers: [
+                // Google STUN sunucuları (en güvenilir)
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' },
+                // Ek STUN sunucuları
+                { urls: 'stun:stun.voiparound.com:3478' },
+                { urls: 'stun:stun.voipbuster.com:3478' },
+                { urls: 'stun:stun.voipstunt.com:3478' },
+                { urls: 'stun:stun.voxgratia.org:3478' },
+                // Chrome için ek sunucular
+                { urls: 'stun:stun.ekiga.net:3478' },
+                { urls: 'stun:stun.ideasip.com:3478' },
+                { urls: 'stun:stun.rixtelecom.se:3478' },
+                { urls: 'stun:stun.schlund.de:3478' }
+            ],
+            iceCandidatePoolSize: 10,
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            sdpSemantics: 'unified-plan',
+            // Chrome tabanlı tarayıcılar için ek ayarlar
+            iceServersPolicy: 'all'
+        };
+        
+        const peerConnection = new RTCPeerConnection(rtcConfig);
         
         // Yerel ses akışını ekle
         if (this.localStream) {
@@ -132,11 +161,17 @@ class WebRTCManager {
             }
         };
 
-        // ICE candidate'ları dinle
+        // ICE candidate'ları dinle - Chrome için optimize edildi
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('ICE candidate gönderiliyor:', targetClientId, event.candidate.type);
-                wsManager.sendIceCandidate(targetClientId, event.candidate);
+                console.log('ICE candidate gönderiliyor:', targetClientId, event.candidate.type, event.candidate.candidate);
+                
+                // Chrome tabanlı tarayıcılar için candidate filtreleme
+                if (this.isValidIceCandidate(event.candidate)) {
+                    wsManager.sendIceCandidate(targetClientId, event.candidate);
+                } else {
+                    console.log('Geçersiz ICE candidate filtrelendi:', event.candidate.type);
+                }
             } else {
                 console.log('ICE candidate toplama tamamlandı:', targetClientId);
             }
@@ -193,6 +228,12 @@ class WebRTCManager {
             if (peerConnection.signalingState === 'stable' && this.pendingIceCandidates && this.pendingIceCandidates.has(targetClientId)) {
                 this.processPendingIceCandidates(targetClientId, peerConnection);
             }
+            
+            // Chrome tabanlı tarayıcılar için ek durum kontrolü
+            if (peerConnection.signalingState === 'have-remote-offer' && this.pendingIceCandidates && this.pendingIceCandidates.has(targetClientId)) {
+                console.log(`Remote offer durumunda pending candidate'lar işleniyor: ${targetClientId}`);
+                this.processPendingIceCandidates(targetClientId, peerConnection);
+            }
         };
 
         this.peerConnections.set(targetClientId, peerConnection);
@@ -211,12 +252,17 @@ class WebRTCManager {
 
         for (const candidate of candidates) {
             try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log(`Pending ICE candidate eklendi: ${clientId}`);
+                // Chrome tabanlı tarayıcılar için candidate geçerlilik kontrolü
+                if (this.isValidIceCandidate(candidate)) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log(`Pending ICE candidate eklendi: ${clientId}`, candidate.type);
+                } else {
+                    console.log(`Pending ICE candidate filtrelendi: ${clientId}`, candidate.type);
+                }
             } catch (error) {
                 console.warn(`Pending ICE candidate eklenemedi (${clientId}):`, error.message);
-                // Bu normal bir durum olabilir, candidate zaten eklenmiş olabilir
-                // veya candidate geçersiz olabilir
+                // Chrome tabanlı tarayıcılar için hata durumunda devam et
+                continue;
             }
         }
 
@@ -271,18 +317,37 @@ class WebRTCManager {
             
             const peerConnection = this.createPeerConnection(targetClientId);
             
-            // Timeout ekle (daha uzun süre)
+            // Chrome tabanlı tarayıcılar için özel bağlantı yönetimi
+            this.handleChromeConnection(targetClientId);
+            
+            // Timeout ekle (Chrome için daha uzun süre)
             const timeout = setTimeout(() => {
                 if (peerConnection.signalingState !== 'stable') {
                     console.warn(`Offer timeout: ${targetClientId}`);
                     this.closePeerConnection(targetClientId);
                 }
-            }, 15000); // 15 saniye timeout (artırıldı)
+            }, 25000); // 25 saniye timeout (Chrome için artırıldı)
             
             this.connectionTimeouts.set(targetClientId, timeout);
             
-            const offer = await peerConnection.createOffer();
+            // Chrome tabanlı tarayıcılar için özel offer konfigürasyonu
+            const offerOptions = {
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: false,
+                voiceActivityDetection: true,
+                // Chrome için ek ayarlar
+                iceRestart: false
+            };
+            
+            const offer = await peerConnection.createOffer(offerOptions);
             console.log(`Offer oluşturuldu: ${targetClientId}`, offer.type);
+            
+            // Chrome için SDP optimizasyonu
+            if (offer.sdp) {
+                offer.sdp = this.optimizeSdpForChrome(offer.sdp);
+                console.log(`SDP optimize edildi: ${targetClientId}`);
+            }
+            
             await peerConnection.setLocalDescription(offer);
             
             // Timeout'u temizle
@@ -309,23 +374,43 @@ class WebRTCManager {
             
             const peerConnection = this.createPeerConnection(fromClientId);
             
-            // Timeout ekle (daha uzun süre)
+            // Chrome tabanlı tarayıcılar için özel bağlantı yönetimi
+            this.handleChromeConnection(fromClientId);
+            
+            // Timeout ekle (Chrome için daha uzun süre)
             const timeout = setTimeout(() => {
                 if (peerConnection.signalingState !== 'stable') {
                     console.warn(`Answer timeout: ${fromClientId}`);
                     this.closePeerConnection(fromClientId);
                 }
-            }, 15000); // 15 saniye timeout (artırıldı)
+            }, 25000); // 25 saniye timeout (Chrome için artırıldı)
             
             this.connectionTimeouts.set(fromClientId, timeout);
+            
+            // Chrome için SDP optimizasyonu
+            if (offer.sdp) {
+                offer.sdp = this.optimizeSdpForChrome(offer.sdp);
+                console.log(`Gelen SDP optimize edildi: ${fromClientId}`);
+            }
             
             // Önce remote description'ı set et
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             console.log(`Remote description set edildi: ${fromClientId}`);
             
             // Sonra answer oluştur
-            const answer = await peerConnection.createAnswer();
+            const answerOptions = {
+                voiceActivityDetection: true
+            };
+            
+            const answer = await peerConnection.createAnswer(answerOptions);
             console.log(`Answer oluşturuldu: ${fromClientId}`, answer.type);
+            
+            // Chrome için SDP optimizasyonu
+            if (answer.sdp) {
+                answer.sdp = this.optimizeSdpForChrome(answer.sdp);
+                console.log(`Answer SDP optimize edildi: ${fromClientId}`);
+            }
+            
             await peerConnection.setLocalDescription(answer);
             
             // Timeout'u temizle
@@ -346,12 +431,45 @@ class WebRTCManager {
             const peerConnection = this.peerConnections.get(fromClientId);
             
             if (peerConnection) {
-                // Peer connection'ın durumunu kontrol et
-                if (peerConnection.signalingState === 'have-local-offer') {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                    console.log(`Answer işlendi: ${fromClientId}`);
+                // Chrome için SDP optimizasyonu
+                if (answer.sdp) {
+                    answer.sdp = this.optimizeSdpForChrome(answer.sdp);
+                }
+                
+                // Peer connection'ın durumunu kontrol et - Chrome için daha esnek kontrol
+                if (peerConnection.signalingState === 'have-local-offer' || 
+                    peerConnection.signalingState === 'stable') {
+                    try {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                        console.log(`Answer işlendi: ${fromClientId}`);
+                    } catch (error) {
+                        console.warn(`Answer set edilirken hata (${fromClientId}):`, error.message);
+                        // Chrome tabanlı tarayıcılar için yeniden deneme
+                        if (error.name === 'InvalidStateError') {
+                            console.log(`Peer connection durumu uygun değil, yeniden deneniyor: ${fromClientId}`);
+                            // Kısa bir bekleme sonrası tekrar dene
+                            setTimeout(async () => {
+                                try {
+                                    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                                    console.log(`Answer yeniden deneme başarılı: ${fromClientId}`);
+                                } catch (retryError) {
+                                    console.error(`Answer yeniden deneme başarısız (${fromClientId}):`, retryError.message);
+                                }
+                            }, 1000);
+                        }
+                    }
                 } else {
                     console.warn(`Peer connection yanlış durumda (${fromClientId}): ${peerConnection.signalingState}`);
+                    // Chrome tabanlı tarayıcılar için durum kontrolünü esnet
+                    if (peerConnection.signalingState === 'have-remote-offer') {
+                        console.log(`Remote offer durumunda answer işleniyor: ${fromClientId}`);
+                        try {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                            console.log(`Answer işlendi (remote offer durumunda): ${fromClientId}`);
+                        } catch (error) {
+                            console.error(`Answer işleme hatası (remote offer): ${fromClientId}`, error.message);
+                        }
+                    }
                 }
             } else {
                 console.warn(`Peer connection bulunamadı: ${fromClientId}`);
@@ -364,7 +482,7 @@ class WebRTCManager {
     // ICE candidate al
     async handleIceCandidate(fromClientId, candidate) {
         try {
-            console.log(`ICE candidate alındı: ${fromClientId}`, candidate.type);
+            console.log(`ICE candidate alındı: ${fromClientId}`, candidate.type, candidate.candidate);
             const peerConnection = this.peerConnections.get(fromClientId);
             
             if (!peerConnection) {
@@ -372,15 +490,31 @@ class WebRTCManager {
                 return;
             }
 
-            // Peer connection'ın durumunu kontrol et
+            // Chrome tabanlı tarayıcılar için candidate geçerlilik kontrolü
+            if (!this.isValidIceCandidate(candidate)) {
+                console.log(`Geçersiz ICE candidate filtrelendi: ${fromClientId}`, candidate.type);
+                return;
+            }
+
+            // Peer connection'ın durumunu kontrol et - Chrome için daha esnek kontrol
             if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                    console.log(`ICE candidate eklendi: ${fromClientId}`);
+                    console.log(`ICE candidate eklendi: ${fromClientId}`, candidate.type);
                 } catch (iceError) {
                     console.warn(`ICE candidate eklenemedi (${fromClientId}):`, iceError.message);
-                    // Bu normal bir durum olabilir, candidate zaten eklenmiş olabilir
-                    // veya candidate geçersiz olabilir
+                    // Chrome tabanlı tarayıcılar için özel hata yönetimi
+                    if (iceError.name === 'InvalidStateError' || iceError.name === 'OperationError') {
+                        console.log(`Peer connection henüz hazır değil, candidate bekletiliyor: ${fromClientId}`);
+                        // Candidate'ı daha sonra eklemek için sakla
+                        if (!this.pendingIceCandidates) {
+                            this.pendingIceCandidates = new Map();
+                        }
+                        if (!this.pendingIceCandidates.has(fromClientId)) {
+                            this.pendingIceCandidates.set(fromClientId, []);
+                        }
+                        this.pendingIceCandidates.get(fromClientId).push(candidate);
+                    }
                 }
             } else {
                 console.log(`Remote description henüz set edilmedi, ICE candidate bekletiliyor: ${fromClientId}`);
@@ -561,7 +695,7 @@ class WebRTCManager {
     }
 
     // Bağlantıyı yeniden dene
-    async retryConnection(targetClientId, maxRetries = 3) {
+    async retryConnection(targetClientId, maxRetries = 5) {
         const retryCount = this.retryCounts.get(targetClientId) || 0;
         
         if (retryCount >= maxRetries) {
@@ -578,8 +712,8 @@ class WebRTCManager {
         // Yeniden deneme sayısını artır
         this.retryCounts.set(targetClientId, retryCount + 1);
         
-        // Exponential backoff ile bekleme süresi
-        const waitTime = Math.min(2000 * Math.pow(2, retryCount), 10000);
+        // Chrome tabanlı tarayıcılar için exponential backoff ile bekleme süresi
+        const waitTime = Math.min(4000 * Math.pow(2, retryCount), 20000); // Chrome için daha uzun bekleme
         console.log(`${waitTime}ms sonra yeniden deneme...`);
         
         // Bekle ve yeniden dene
@@ -591,6 +725,155 @@ class WebRTCManager {
                 console.error(`Yeniden deneme hatası (${targetClientId}):`, error);
             }
         }, waitTime);
+    }
+
+    // Chrome tabanlı tarayıcılar için özel bağlantı yönetimi
+    async handleChromeConnection(targetClientId) {
+        console.log(`Chrome tabanlı tarayıcı bağlantısı yönetiliyor: ${targetClientId}`);
+        
+        // Chrome tabanlı tarayıcılar için özel timeout
+        const chromeTimeout = setTimeout(() => {
+            const peerConnection = this.peerConnections.get(targetClientId);
+            if (peerConnection && peerConnection.connectionState !== 'connected') {
+                console.warn(`Chrome bağlantısı timeout: ${targetClientId}`);
+                this.retryConnection(targetClientId);
+            }
+        }, 30000); // 30 saniye Chrome timeout
+        
+        // Chrome tabanlı tarayıcılar için özel event listener'lar
+        const peerConnection = this.peerConnections.get(targetClientId);
+        if (peerConnection) {
+            const originalOnConnectionStateChange = peerConnection.onconnectionstatechange;
+            peerConnection.onconnectionstatechange = () => {
+                console.log(`Chrome connection state change (${targetClientId}):`, peerConnection.connectionState);
+                
+                if (peerConnection.connectionState === 'connected') {
+                    clearTimeout(chromeTimeout);
+                    console.log(`Chrome bağlantısı başarılı: ${targetClientId}`);
+                } else if (peerConnection.connectionState === 'failed') {
+                    clearTimeout(chromeTimeout);
+                    console.warn(`Chrome bağlantısı başarısız: ${targetClientId}`);
+                    this.retryConnection(targetClientId);
+                }
+                
+                // Orijinal event listener'ı çağır
+                if (originalOnConnectionStateChange) {
+                    originalOnConnectionStateChange.call(peerConnection);
+                }
+            };
+        }
+    }
+
+    // ICE candidate'ın geçerli olup olmadığını kontrol et
+    isValidIceCandidate(candidate) {
+        if (!candidate || !candidate.candidate) {
+            return false;
+        }
+        
+        const candidateStr = candidate.candidate.toLowerCase();
+        
+        // Chrome tabanlı tarayıcılar için özel kontroller
+        if (candidateStr.includes('tcp') && !candidateStr.includes('host')) {
+            // TCP candidate'ları sadece host ise kabul et
+            return candidateStr.includes('host');
+        }
+        
+        // Geçersiz candidate türlerini filtrele - Chrome için daha esnek
+        const invalidTypes = ['relay'];
+        if (invalidTypes.some(type => candidateStr.includes(type))) {
+            return false;
+        }
+        
+        // Chrome için özel candidate filtreleme
+        if (candidateStr.includes('udp') && candidateStr.includes('192.168.')) {
+            // Yerel ağ candidate'larını kabul et
+            return true;
+        }
+        
+        if (candidateStr.includes('udp') && candidateStr.includes('10.')) {
+            // Özel ağ candidate'larını kabul et
+            return true;
+        }
+        
+        if (candidateStr.includes('udp') && candidateStr.includes('172.')) {
+            // Özel ağ candidate'larını kabul et
+            return true;
+        }
+        
+        // STUN candidate'larını kabul et
+        if (candidateStr.includes('udp') && candidateStr.includes('stun')) {
+            return true;
+        }
+        
+        // Chrome tabanlı tarayıcılar için ek kontroller
+        if (candidateStr.includes('udp') && candidateStr.includes('127.0.0.1')) {
+            // Localhost candidate'larını kabul et
+            return true;
+        }
+        
+        // Genel UDP candidate'larını kabul et
+        if (candidateStr.includes('udp') && !candidateStr.includes('tcp')) {
+            return true;
+        }
+        
+        // Chrome için prflx candidate'larını da kabul et (daha esnek)
+        if (candidateStr.includes('prflx')) {
+            return true;
+        }
+        
+        return true;
+    }
+
+    // Chrome tabanlı tarayıcılar için SDP optimizasyonu
+    optimizeSdpForChrome(sdp) {
+        if (!sdp) return sdp;
+        
+        let optimizedSdp = sdp;
+        
+        // Chrome için özel SDP optimizasyonları
+        // 1. ICE candidate toplama stratejisi
+        optimizedSdp = optimizedSdp.replace(/a=ice-options:trickle/g, 'a=ice-options:trickle\na=ice-options:renomination');
+        
+        // 2. Bundle policy optimizasyonu
+        if (!optimizedSdp.includes('a=group:BUNDLE')) {
+            optimizedSdp = optimizedSdp.replace(/(m=audio.*\r?\n)/, '$1a=group:BUNDLE audio\r\n');
+        }
+        
+        // 3. Chrome için özel codec ayarları
+        optimizedSdp = optimizedSdp.replace(/a=rtpmap:111 opus\/48000\/2/g, 'a=rtpmap:111 opus/48000/2\na=fmtp:111 minptime=10;useinbandfec=1');
+        
+        // 4. Chrome tabanlı tarayıcılar için ek optimizasyonlar
+        // ICE candidate toplama süresini artır
+        if (!optimizedSdp.includes('a=ice-options:trickle')) {
+            optimizedSdp = optimizedSdp.replace(/(v=0.*\r?\n)/, '$1a=ice-options:trickle\r\n');
+        }
+        
+        // 5. Chrome için özel media ayarları
+        optimizedSdp = optimizedSdp.replace(/a=mid:audio/g, 'a=mid:audio\na=sendonly');
+        
+        // 6. Chrome tabanlı tarayıcılar için connection bilgisi
+        if (!optimizedSdp.includes('c=IN IP4')) {
+            optimizedSdp = optimizedSdp.replace(/(m=audio.*\r?\n)/, '$1c=IN IP4 0.0.0.0\r\n');
+        }
+        
+        // 7. Chrome için özel attribute'lar
+        optimizedSdp = optimizedSdp.replace(/a=rtcp-mux/g, 'a=rtcp-mux\na=rtcp-rsize');
+        
+        // 8. Chrome tabanlı tarayıcılar için ek SDP optimizasyonları
+        // ICE candidate toplama süresini artır
+        optimizedSdp = optimizedSdp.replace(/a=ice-options:trickle/g, 'a=ice-options:trickle\na=ice-options:renomination');
+        
+        // 9. Chrome için özel media ayarları
+        if (!optimizedSdp.includes('a=sendrecv')) {
+            optimizedSdp = optimizedSdp.replace(/a=mid:audio/g, 'a=mid:audio\na=sendrecv');
+        }
+        
+        // 10. Chrome tabanlı tarayıcılar için connection bilgisi
+        if (!optimizedSdp.includes('c=IN IP4 0.0.0.0')) {
+            optimizedSdp = optimizedSdp.replace(/(m=audio.*\r?\n)/, '$1c=IN IP4 0.0.0.0\r\n');
+        }
+        
+        return optimizedSdp;
     }
 }
 

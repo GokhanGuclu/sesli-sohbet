@@ -115,5 +115,71 @@
     <script src="js/webrtc.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
+    
+    <script>
+        // Electron versiyonu için özel ayarlar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Sesli Sohbet Electron Versiyonu yüklendi');
+            
+            // Chrome tabanlı tarayıcılar için debug bilgileri
+            const userAgent = navigator.userAgent;
+            const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
+            const isEdge = /Edg/.test(userAgent);
+            const isFirefox = /Firefox/.test(userAgent);
+            
+            console.log('Tarayıcı Bilgileri:', {
+                userAgent: userAgent,
+                isChrome: isChrome,
+                isEdge: isEdge,
+                isFirefox: isFirefox,
+                webRTCSupported: typeof RTCPeerConnection !== 'undefined',
+                mediaDevicesSupported: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                isElectron: !!(window && window.process && window.process.type)
+            });
+            
+            // Chrome tabanlı tarayıcılar için özel optimizasyonlar
+            if (isChrome || isEdge) {
+                console.log('Chrome tabanlı tarayıcı tespit edildi - WebRTC optimizasyonları aktif');
+                
+                // Chrome için özel event listener'lar
+                if (window.rtcManager) {
+                    // Chrome tabanlı tarayıcılar için bağlantı durumu takibi
+                    window.rtcManager.on('peerConnected', (clientId) => {
+                        console.log(`Chrome bağlantısı başarılı: ${clientId}`);
+                    });
+                    
+                    window.rtcManager.on('peerDisconnected', (clientId) => {
+                        console.log(`Chrome bağlantısı kesildi: ${clientId}`);
+                    });
+                    
+                    window.rtcManager.on('connectionFailed', (clientId) => {
+                        console.log(`Chrome bağlantısı başarısız: ${clientId}`);
+                    });
+                }
+            }
+            
+            // Chrome tabanlı tarayıcılar için debug komutları
+            window.debugChromeWebRTC = function() {
+                console.log('=== Chrome WebRTC Debug Bilgileri ===');
+                console.log('Tarayıcı:', userAgent);
+                console.log('WebRTC Desteği:', typeof RTCPeerConnection !== 'undefined');
+                console.log('MediaDevices Desteği:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+                console.log('Electron Ortamı:', !!(window && window.process && window.process.type));
+                
+                if (window.rtcManager) {
+                    console.log('WebRTC Manager Durumu:', window.rtcManager.getStatus());
+                }
+                
+                if (window.wsManager) {
+                    console.log('WebSocket Durumu:', window.wsManager.getConnectionStatus());
+                }
+                
+                console.log('=== Debug Bilgileri Tamamlandı ===');
+            };
+            
+            // Debug komutunu konsola ekle
+            console.log('Chrome WebRTC debug için: debugChromeWebRTC() komutunu kullanın');
+        });
+    </script>
 </body>
 </html> 

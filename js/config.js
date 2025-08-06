@@ -3,20 +3,31 @@ const CONFIG = {
     // WebSocket sunucu URL'si - Localhost için
     DEFAULT_SERVER_URL: 'ws://localhost:8000/ws',
     
-    // WebRTC konfigürasyonu
+    // WebRTC konfigürasyonu - Chrome tabanlı tarayıcılar için optimize edildi
     RTC_CONFIG: {
         iceServers: [
             // Google STUN sunucuları (en güvenilir)
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            // Ek STUN sunucuları
+            { urls: 'stun:stun.voiparound.com:3478' },
+            { urls: 'stun:stun.voipbuster.com:3478' },
+            { urls: 'stun:stun.voipstunt.com:3478' },
+            { urls: 'stun:stun.voxgratia.org:3478' }
         ],
         iceCandidatePoolSize: 10,
         iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require',
-        // Ek optimizasyonlar
-        sdpSemantics: 'unified-plan'
+        // Chrome tabanlı tarayıcılar için ek optimizasyonlar
+        sdpSemantics: 'unified-plan',
+        // Chrome için özel ayarlar
+        iceServersPolicy: 'all',
+        // ICE candidate toplama stratejisi
+        iceCandidatePoolSize: 10
     },
     
     // Uygulama ayarları
