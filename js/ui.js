@@ -29,8 +29,7 @@ class UIManager {
         this.leaveBtn = document.getElementById('leave-btn');
         this.usersList = document.getElementById('users-list');
         this.messagesContainer = document.getElementById('messages');
-        this.messageInput = document.getElementById('message-input');
-        this.sendBtn = document.getElementById('send-btn');
+        // this.messageInput ve this.sendBtn kaldırıldı
         
         // Ses kontrol elementleri
         this.muteBtn = document.getElementById('mute-btn');
@@ -52,25 +51,22 @@ class UIManager {
     // Event listener'ları bağla
     bindEvents() {
         // Giriş formu
-        if (this.joinBtn) this.joinBtn.addEventListener('click', () => this.handleJoin());
-        if (this.usernameInput) this.usernameInput.addEventListener('keypress', (e) => {
+        this.joinBtn.addEventListener('click', () => this.handleJoin());
+        this.usernameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleJoin();
         });
-        if (this.roomIdInput) this.roomIdInput.addEventListener('keypress', (e) => {
+        this.roomIdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleJoin();
         });
 
         // Sohbet ekranı
-        if (this.leaveBtn) this.leaveBtn.addEventListener('click', () => this.handleLeave());
-        if (this.sendBtn) this.sendBtn.addEventListener('click', () => this.handleSendMessage());
-        if (this.messageInput) this.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.handleSendMessage();
-        });
+        this.leaveBtn.addEventListener('click', () => this.handleLeave());
+        // this.sendBtn ve this.messageInput ile ilgili eventler kaldırıldı
 
         // Ses kontrolleri
-        if (this.muteBtn) this.muteBtn.addEventListener('click', () => this.handleMute());
-        if (this.deafenBtn) this.deafenBtn.addEventListener('click', () => this.handleDeafen());
-        if (this.volumeSlider) this.volumeSlider.addEventListener('input', (e) => {
+        this.muteBtn.addEventListener('click', () => this.handleMute());
+        this.deafenBtn.addEventListener('click', () => this.handleDeafen());
+        this.volumeSlider.addEventListener('input', (e) => {
             this.handleVolumeChange(e.target.value);
         });
 
@@ -558,6 +554,4 @@ class UIManager {
 }
 
 // Global UI manager instance'ı oluştur
-if (typeof window !== 'undefined') {
-    window.uiManager = new UIManager();
-} 
+window.uiManager = new UIManager(); 
