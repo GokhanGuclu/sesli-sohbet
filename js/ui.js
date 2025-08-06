@@ -52,25 +52,25 @@ class UIManager {
     // Event listener'ları bağla
     bindEvents() {
         // Giriş formu
-        this.joinBtn.addEventListener('click', () => this.handleJoin());
-        this.usernameInput.addEventListener('keypress', (e) => {
+        if (this.joinBtn) this.joinBtn.addEventListener('click', () => this.handleJoin());
+        if (this.usernameInput) this.usernameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleJoin();
         });
-        this.roomIdInput.addEventListener('keypress', (e) => {
+        if (this.roomIdInput) this.roomIdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleJoin();
         });
 
         // Sohbet ekranı
-        this.leaveBtn.addEventListener('click', () => this.handleLeave());
-        this.sendBtn.addEventListener('click', () => this.handleSendMessage());
-        this.messageInput.addEventListener('keypress', (e) => {
+        if (this.leaveBtn) this.leaveBtn.addEventListener('click', () => this.handleLeave());
+        if (this.sendBtn) this.sendBtn.addEventListener('click', () => this.handleSendMessage());
+        if (this.messageInput) this.messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleSendMessage();
         });
 
         // Ses kontrolleri
-        this.muteBtn.addEventListener('click', () => this.handleMute());
-        this.deafenBtn.addEventListener('click', () => this.handleDeafen());
-        this.volumeSlider.addEventListener('input', (e) => {
+        if (this.muteBtn) this.muteBtn.addEventListener('click', () => this.handleMute());
+        if (this.deafenBtn) this.deafenBtn.addEventListener('click', () => this.handleDeafen());
+        if (this.volumeSlider) this.volumeSlider.addEventListener('input', (e) => {
             this.handleVolumeChange(e.target.value);
         });
 
@@ -558,4 +558,6 @@ class UIManager {
 }
 
 // Global UI manager instance'ı oluştur
-window.uiManager = new UIManager(); 
+if (typeof window !== 'undefined') {
+    window.uiManager = new UIManager();
+} 
